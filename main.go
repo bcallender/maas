@@ -21,10 +21,11 @@ func check (e error) {
 
 
 type Model struct {
-	Seeds []string
-	Transitions map[string][]string
-	Title string
-	Depth int
+	Id bson.ObjectId `json:"id" bson:"_id,omitempty"`
+	Seeds []string `json:"seeds"`
+	Transitions map[string][]string `json:"transitions"`
+	Title string `json:"title"`
+	Depth int `json:"depth"`
 }
 
 
@@ -130,7 +131,7 @@ func lookupAndGenerate(title string) {
 	fmt.Println(generated)
 }
 
-func parseAndGenerate(title string, filename string) {
+func parseAndGenerate(title string, filename string, done chan int) {
 	session, err := mgo.Dial("localhost")
 	if err != nil {
 		panic(err)
@@ -144,20 +145,27 @@ func parseAndGenerate(title string, filename string) {
 	words := words(filename)
 	var transitions = make(map[string][]string)
 	seeds  := parseSentence(depth, words, transitions)
-	entity := Model{seeds, transitions, title, depth}
+	entity := Model{bson.NewObjectId(), seeds, transitions, title, depth}
 	err = c.Insert(&entity)
 	if err != nil {
 		log.Fatal(err)
 	}
 	generated := generate(transitions, seeds, depth)
 	fmt.Println(generated)
+	done <- 1
 }
 
 
 
 func main() {
-	//filename := "/home/brandon/dev/golang/src/github.com/bcallender/maas/story.txt"
-	//parseAndGenerate("A Tale of Two Cities", filename)
-	lookupAndGenerate("A Tale of Two Cities")
+	filename := "/home/brandon/dev/golang/src/github.com/bcallender/maas/story.txt"
+	c := make(chan int)
+	for i:= 0; i<25; i++ {
+		go parseAndGenerate(string(i), filename, c)
+	}
+	for i:= 0; i<25; i++ {
+		<-c
+	}
+
 
 }
